@@ -1,0 +1,452 @@
+---
+title: "Violência contra mulheres 2022"
+author: "poli"
+date: '2022-10-03'
+output:
+  html_document:
+    theme: journal
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+  pdf_document:
+    toc: yes
+---
+
+## As bases
+
+```{r echo=FALSE, message=FALSE}
+#acessando os dados 
+library(jsonlite)
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+library(rmarkdown)
+library(dplyr)
+library(stringr)
+options(scipen = 999)
+#setando o diretorio
+setwd("~/data_labe/azmina")
+```
+
+As bases dos arquivos estavam divididas por semana. A data inicial foi de 17/08/22 e a final 12/10/22, somando 8 semanas de análise. 
+As bases não estavam estruturadas harmonicamente. Entre a 5ª e 8ª semana o número de variáveis foi o menor. Com a 5ª semana com 10 colunas e, as demais com 11 colunas.
+<br>
+As quatro primeiras semanas possuíam um volume muito maior de colunas, sendo da 1ª a 3ª semana com 56 colunas e a 4ª semana com 62 colunas.
+<br>
+No total, todas as semanas somaram 155.814 linhas.
+<br>
+Portanto, fizemos uma padronização que reduziu o total de colunas para que ficássemos com uma base de análise com variáveis comuns entre todas as semanas.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#pacote necessario para abrir arquivos de excel
+library("readxl")
+#trazendo as bases na ordem crescente
+sem1 <- read_excel("SUDESTE-17-24-agosto.xlsx")
+sem2 <- read_excel("SUDESTE-25-31-agosto.xlsx")
+sem3 <- read_excel("SUDESTE-01-08-setembro.xlsx")
+sem4 <- read_excel("SUDESTE-08-14-setembro.xlsx")
+sem5 <- read_excel("SUDESTE-15-21-setembro.xlsx")
+sem6 <- read_excel("SUDESTE-22-28-setembro.xlsx")
+sem7 <- read_excel("SUDESTE-29-setembro-05-outubro.xlsx")
+sem8 <- read_excel("SUDESTE-06-12-outubro.xlsx")
+```
+Dessa forma, pegamos as colunas de "nome da candidatura ofendida" e o "texto da ofensa", que eram variáveis comuns a todas as semanas.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+###SEMANA 1
+#exibindo os nomes das variaveis
+#names(sem1)
+#pegando as colunas da candidatura e do texto
+sem1def <- sem1[,c(31,21)]
+#renomeanndo para padronizar
+names(sem1def) <- c("candidata", "ofensa")
+
+###SEMANA 2
+#exibindo os nomes das variaveis
+#names(sem2)
+#pegando as colunas da candidatura e do texto
+sem2def <- sem2[,c(31,21)]
+#renomeanndo para padronizar
+names(sem2def) <- c("candidata", "ofensa")
+
+###SEMANA 3
+#exibindo os nomes das variaveis
+#names(sem3)
+#pegando as colunas da candidatura e do texto
+sem3def <- sem3[,c(31,21)]
+#renomeanndo para padronizar
+names(sem3def) <- c("candidata", "ofensa")
+
+###SEMANA 4
+#exibindo os nomes das variaveis
+#names(sem4)
+#pegando as colunas da candidatura e do texto
+sem4def <- sem4[,c(21,22)]
+#renomeanndo para padronizar
+names(sem4def) <- c("candidata", "ofensa")
+
+###SEMANA 5
+#exibindo os nomes das variaveis
+#names(sem5)
+#pegando as colunas da candidatura e do texto
+sem5def <- sem5[,c(1,9)]
+#renomeanndo para padronizar
+names(sem5def) <- c("candidata", "ofensa")
+
+###SEMANA 6
+#exibindo os nomes das variaveis
+#names(sem6)
+#pegando as colunas da candidatura e do texto
+sem6def <- sem6[,c(1,10)]
+#renomeanndo para padronizar
+names(sem6def) <- c("candidata", "ofensa")
+
+###SEMANA 7
+#exibindo os nomes das variaveis
+#names(sem7)
+#pegando as colunas da candidatura e do texto
+sem7def <- sem7[,c(1,10)]
+#renomeanndo para padronizar
+names(sem7def) <- c("candidata", "ofensa")
+
+###SEMANA 8
+#exibindo os nomes das variaveis
+#names(sem8)
+#pegando as colunas da candidatura e do texto
+sem8def <- sem8[,c(1,10)]
+#renomeanndo para padronizar
+names(sem8def) <- c("candidata", "ofensa")
+#juntando as bases def para compor a base de análise
+analise <- rbind(sem1def, sem2def, sem3def, sem4def, sem5def, sem6def, sem7def, sem8def )
+#exportando essa base em um arquivo csv
+write.csv(analise, "base_analise_azmina.csv")
+#exclua tudo do enviroment
+#traga apenas a base que acabou de gerar
+base <- read.csv("base_analise_azmina.csv")
+#excluindo a primeira variável de contagem
+base$X <- NULL
+```
+
+A base de análise ficou com 155.814 linhas e 2 colunas, você pode olhar com mais detalhes abaixo:
+```{r  echo=FALSE, warning=FALSE, message=FALSE}
+paged_table(base)
+```
+Os nomes das candidatas incluem nomes de não candidatas, como Janja. Além disso o campo dos nomes possuía textos não pertencentes ao nome e também tínhamos nomes de candidatos do gênero masculino.
+Na tabela abaixo é possível vermos os detalhes dos nomes. Foi realizado uma padronização pelo campo menor, ou seja, no caso de "Bella Gonçalves | Deputado Estadual | Minas Gerais" essa entrada foi modificada apenas para "Bella Gonçalves"
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+base2 <- base%>% group_by(candidata) %>% count()
+paged_table(base2)
+```
+Após a padronização dos nomes, a contagem das menções por candidato resultou em uma base com 52 linhas e o número ao lado se refere a quantidade de conteúdos ofensivos registrados pelo levantamento:
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#padronizando os nomes
+base$canddef <- "" 
+
+base$canddef[which(base$candidata=="Abraham Weintraub  | Deputado Federal | São Paulo")] <- "Abraham Weintraub"
+
+base$canddef[which(base$candidata=="Alexandre Padilha | Deputado Federal | São Paulo")] <- "Alexandre Padilha"
+
+base$canddef[which(base$candidata=="Alexya Salvador | Deputado Estadual | São Paulo")] <- "Alexya Salvador"
+
+base$canddef[which(base$candidata=="Bella Gonçalves | Deputado Estadual | Minas Gerais")] <- "Bella Gonçalves"
+
+base$canddef[which(base$candidata=="Benedita da Silva | Deputado Federal | Rio de Janeiro")] <- "Benedita da Silva"
+
+base$canddef[which(base$candidata=="Benny Briolly | Deputado Estadual | Rio de Janeiro")] <- "Benny Briolly"
+
+base$canddef[which(base$candidata=="Camila Valadão | Deputado Estadual | Espírito Santo")] <- "Camila Valadao"
+
+base$canddef[which(base$candidata=="Carla Zambelli | Deputado Federal | São Paulo")] <- "Carla Zambelli"
+
+base$canddef[which(base$candidata=="Célia Xakriabá | Deputado Federal | Minas Gerais")] <- "Célia Xakriabá"
+
+base$canddef[which(base$candidata=="Celso Russomano  | Deputado Federal | São Paulo")] <- "Celso Russomanno"
+
+base$canddef[which(base$candidata=="Chris Tonietto | Deputado Federal | Rio de Janeiro")] <- "Chris Tonietto"
+
+base$canddef[which(base$candidata=="Dandara Tonantzin | Deputado Federal | Minas Gerais")] <- "Dandara"
+
+base$canddef[which(base$candidata=="Daniel Munduruku | Deputado Federal | São Paulo")] <- "Daniel Munduruku"
+
+base$canddef[which(base$candidata=="David Miranda | Deputado Federal | Rio de Janeiro")] <- "David Miranda"
+
+base$canddef[which(base$candidata=="Douglas Belchior | Deputado Federal | São Paulo")] <- "Douglas Belchior"
+
+base$canddef[which(base$candidata=="Douglas Garcia | Deputado Federal | São Paulo")] <- "Douglas Garcia"
+
+base$canddef[which(base$candidata=="Duda Salabert | Deputado Federal | Minas Gerais")] <- "Duda Salabert"
+
+base$canddef[which(base$candidata=="Dyego Servolo | Deputado Federal | São Paulo")] <- "Dyego Sérvolo"
+
+base$canddef[which(base$candidata=="Eduardo Bolsonaro | Deputado Federal | São Paulo")] <- "Eduardo Bolsonaro"
+
+base$canddef[which(base$candidata=="Erica Hilton | Deputado Federal | São Paulo")] <- "Erika Hilton"
+
+base$canddef[which(base$candidata=="Erika Hilton | Deputado Federal | São Paulo")] <- "Erika Hilton"
+
+base$canddef[which(base$candidata=="Erica Hilton")] <- "Erika Hilton"
+
+base$canddef[which(base$candidata=="Felipe Rigoni | Deputado Federal | Espírito Santo")] <- "Felipe Rigoni"
+
+base$canddef[which(base$candidata=="Fernando Holiday | Deputado Federal | São Paulo")] <- "Fernando Holiday"
+
+base$canddef[which(base$candidata=="Flávia Diniz | Deputado Estadual | Rio de Janeiro")] <- "Flávia Diniz"
+
+base$canddef[which(base$candidata=="Helio Lopes | Deputado Federal | Rio de Janeiro")] <- "Helio Fernando Barbosa Lopes"
+
+base$canddef[which(base$candidata=="Heloísa Helena | Deputado Federal | Rio de Janeiro")] <- "Heloísa Helena"
+
+base$canddef[which(base$candidata=="Ivan Valente | Deputado Federal | São Paulo")] <- "Ivan Valente"
+
+base$canddef[which(base$candidata=="Ivanir dos Santos | Senado | Rio de Janeiro")] <- "Ivanir dos Santos"
+
+base$canddef[which(base$candidata=="Jack Rocha | Deputado Federal | Espírito Santo")] <- "Jack Rocha"
+
+base$canddef[which(base$candidata=="Janaina Paschoal | Senado | São Paulo")] <- "Janaina Paschoal"
+
+base$canddef[which(base$candidata=="Janja | Primeira dama | São Paulo")] <- "Janja"
+
+base$canddef[which(base$candidata=="Joice Hasselmann | Deputado Federal | São Paulo")] <- "Joice Hasselmann"
+
+base$canddef[which(base$candidata=="Juliete | Governadora | Rio de Janeiro")] <- "Juliete"
+
+base$canddef[which(base$candidata=="Keit Lima | Deputado Estadual | São Paulo")] <- "Keit Lima"
+
+base$canddef[which(base$candidata=="Kim Kataguiri | Deputado Federal | São Paulo")] <- "Kim Kataguiri"
+
+base$canddef[which(base$candidata=="Laura Serrano | Deputado Estadual | Minas Gerais")] <- "Laura Serrano"
+
+base$canddef[which(base$candidata=="Leci Brandão | Deputado Estadual | São Paulo")] <- "Leci Brandão"
+
+base$canddef[which(base$candidata=="Lorene Figueiredo | Governadora | Minas Gerais")] <- "Lorene Figueiredo"
+
+base$canddef[which(base$candidata=="Luiza Erundina | Deputado Federal | São Paulo")] <- "Luiza Erundina"
+
+base$canddef[which(base$candidata=="Mara Gabrili | Vice Presidente | São Paulo")] <- "Mara Gabrilli"
+
+base$canddef[which(base$candidata=="Marco Feliciano | Deputado Federal | São Paulo")] <- "Pastor Marco Feliciano"
+
+base$canddef[which(base$candidata=="Marina Silva | Deputado Federal | São Paulo")] <- "Marina Silva"
+
+base$canddef[which(base$candidata=="Orlando Silva | Deputado Federal | São Paulo")] <- "Orlando Silva"
+
+base$canddef[which(base$candidata=="Paulinho da Força | Deputado Federal | São Paulo")] <- "Paulinho da Força"
+
+base$canddef[which(base$candidata=="Paulo Ganime | Governo Estadual | Rio de Janeiro")] <- "Paulo Ganime "
+
+base$canddef[which(base$candidata=="Renata Regina | Governadora | Minas Gerais")] <- "Renata Regina"
+
+base$canddef[which(base$candidata=="Rosângela Moro | Deputado Federal | São Paulo")] <- "Rosângela Moro"
+
+base$canddef[which(base$candidata=="Rose de Freitas | Senado | Espírito Santo")] <- "Rose de Freitas"
+
+base$canddef[which(base$candidata=="Sâmia Bonfim | Deputado Federal | São Paulo")] <- "Sâmia Bomfim"
+
+base$canddef[which(base$candidata=="Sérgio Camargo | Deputado Federal | São Paulo")] <- "Sergio Camargo"
+
+base$canddef[which(base$candidata=="Sonia Guajajara | Deputado Federal | São Paulo")] <- "Sônia Guajajara"
+
+base$canddef[which(base$candidata=="Tabata Amaral | Deputado Federal | São Paulo")] <- "Tabata Amaral"
+
+base$canddef[which(base$candidata=="Tabata Amaral | Deputado Federal | São Paulo")] <- "Tabata Amaral"
+
+#recontando
+base3 <- base %>% group_by(canddef) %>% count()
+paged_table(base3[-1,])
+```
+
+## Top 10 Mulheres
+Para sabermos as informações de gênero, raça, escolaridade, partido e idade trouxemos as informações da base de candidaturas divulgada pelo TSE.
+A base das mulheres mencionadas, com as informações de candidatura e a quantidade de menções de cada uma pode ser melhor visualizada abaixo:
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#trazendo a base do tse
+cand <- read.csv("consulta_cand_2022_BRASIL.csv", fileEncoding = "latin1", colClasses = "character", sep = ";")
+cand <- cand[,c(11,15,16,19,29,44,47,49,51,53)]
+#mudando o variavel canddef para maiusculo
+base3$canddef <- toupper(base3$canddef)
+#fazendo o merge
+canddef <- merge(cand, base3, by.x = "NM_URNA_CANDIDATO", by.y = "canddef", all.x = F, all.y = T, incomparables = NA)
+#gerando o top 10 das mulheres
+mulheres <- canddef %>% filter(DS_GENERO=="FEMININO") %>% group_by(DS_GENERO, NM_URNA_CANDIDATO) %>% count(n) %>% arrange(desc(n))
+mulheres <- mulheres[,-4]
+#renomeando para exibir
+names(mulheres) <- c("Gênero", "Nome", "Qtde_menções")
+#trazendo as informações novamente após contagem
+mulheres <- merge(mulheres, cand, by.x="Nome", by.y = "NM_URNA_CANDIDATO", all.x = T, all.y = F)
+#exibindo em uma tabela
+
+mulheres <- mulheres[-c(9,11),]
+mulheres <- arrange(mulheres, -Qtde_menções)
+paged_table(mulheres)
+```
+A candidata com menor quantidade de menções foi Laura Serrano, com apenas 5 mensagens. E a candidata com maior quantidade foi Joice Hasselman, com 14.027. <br>
+A média de  menções por candidata foi de 2.777, porém esse número é desequilibrado por termos candidatas com um número muito alto de menções, como Joice, Carla e Marina. <br>
+75% das candidatas teve até 4.105 (3º quartil), uma quantidade bem abaixo da média. E 50% das candidatas tiveram apenas 248 menções (mediana).
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+summary(mulheres$Qtde_menções)
+```
+<br>
+
+**Entretanto Janja, exposa do presidente Lula, supera topas as menções 30.027 menções o dobro da candidata mais citada no levantamento.**
+
+<br>
+No  gráfico abaixo, conseguimos identificar que das 30 candidatas mencionadas pelo levantamento, oito delas se posicionam acima da média de menção por perfil (representada pela linha vermelha tracejada).
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(ggrepel)
+g1 <- ggplot(mulheres, aes(reorder(Nome, Qtde_menções), Qtde_menções))+
+  geom_bar(stat = "identity")+
+  coord_flip()+
+  labs(x="Mulheres citadas", y="Quantidade de menções")+
+  geom_hline(yintercept = 2614, linetype="dashed", color="red")
+ggplotly(g1)
+```
+
+## UF's das candidatas
+As candidaturas participantes do levantamento são predominantemente do estado de São Paulo, com 43,3% do total. Entretanto, existe uma mulher sem UF que é Mara Gabrilli, candidata à vice presidência com Simone Tebet. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(epiDisplay)
+t1 <- tab1(mulheres$SG_UF, graph=F, sort.group = "decreasing")
+t1$output.table
+```
+## Cargos das candidatas
+
+O cargo de deputada federal teve a maioria das menções mapeadas pelo estudo (53,3%), o que é curioso, tendo em vista que a quantidade de candidaturas à deputadas estaduais é a maior
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+t2 <- tab1(mulheres$DS_CARGO, graph = F, sort.group = "decreasing")
+t2$output.table
+```
+
+## Partidos das candidatas
+O partido das candidaturas femininas com maior quantidade de candidatas mencionadas foi o PSOL, responsável por 33,3% das menções mapeadas. 
+<br>
+Porém o PSB tem quase 10.000 de média de menções, quase 3mil a mais da média do União que tem média de menção de 6.654.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+t3 <- tab1(mulheres$SG_PARTIDO, graph = F, sort.group = "decreasing")
+t3$output.table
+
+mulheres %>% group_by(SG_PARTIDO) %>% summarise(média=mean(Qtde_menções)) %>% arrange(desc(média))
+```
+## Idade das candidatas
+As candidatas tem em média 46 anos, sendo a mais jovem com 29 sendo a Tabata Amaral com 9.999 menções e a candidata com mais idade foi Luiza Erundina com 1.088 menções. Pra sabermos se há uma tendência inversa de maior menções para menor idade plotamos o gráfico de linha da idade pela quantidade de menção.
+Apesar de parecer haver uma tendência de que acima dos 45 anos há menos menções não podemos afirmar pela baixa quantidade de dados presentes no gráfico.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+mulheres$NR_IDADE_DATA_POSSE <- as.numeric(mulheres$NR_IDADE_DATA_POSSE)
+summary(mulheres$NR_IDADE_DATA_POSSE)
+
+ggplot(mulheres, aes(NR_IDADE_DATA_POSSE, Qtde_menções ))+
+  geom_point()+
+  geom_smooth()
+```
+## Escolaridade das candidatas
+
+Candidatas com ensino superior tem média de menções muito mais acima que as de outra escolaridade. Mas isso novamente pode ser atribuído às mais mencionadas no geral, o que independe do grau de escolaridade.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+mulheres %>% group_by(DS_GRAU_INSTRUCAO) %>% summarise(mean(Qtde_menções))
+```
+## Estado civil das candidatas
+
+Solteiras e casadas tiveram a mesma distribuição das candidatas participantes do levantamento. <br>
+Entretanto, candidatas casadas tem 4.404 de média de menções versus 1.517 de média das candidatas solteiras.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+t4 <- tab1(mulheres$DS_ESTADO_CIVIL, graph = F, sort.group = "decreasing")
+t4$output.table
+
+mulheres %>% group_by(DS_ESTADO_CIVIL) %>% summarise(mean(Qtde_menções))
+```
+## Raça/cor das candidatas
+Candidatas da raça branca são 47% do total, seguidas das candidatas pretas com 336,7%. <br>
+A média de menções das candidatas brancas foram de 4.198, versus a média de 1.633 das candidatas pretas
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+t5 <- tab1(mulheres$DS_COR_RACA, graph = F, sort.group = "decreasing")
+t5$output.table
+
+mulheres %>% group_by(DS_COR_RACA) %>% summarise(mean(Qtde_menções))
+```
+## Qtde de voto e resultado
+
+Trouxemos as bases dos resultados do TSE para sabermos a quantidade e proporção de votos recebidos pelas candidatas, bem como se foram eleitas ou não.
+No gráfico abaixo, vemos que as mulheres que mais receberam menções são também aquelas que acabaram sendo eleitas por coeficiente partidário. 
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+presidente <- read.csv("resumo_presidente_22.csv")
+senado <- read.csv("resumo_senado22.csv")
+senado <- senado[,c(4,9,11,12)]
+depest <- read.csv("resumo_depestadual22.csv", sep = ";")
+depest <- depest[,c(1,7,8,9)]
+depfed <- read.csv("resumo_dep_federal.csv")
+depfed <- depfed[,c(1,8,9,10)]
+#arrumando a base de presidente para ficar na mesma ordem
+presidente$st <- "Segundo turno"
+presidente <- presidente[,c(1,4,2,3)]
+names(senado) <- c("NM_URNA_CANDIDATO","st", "qtdvoto", "propvoto" )
+resultado <- rbind(presidente, senado, depest, depfed)
+#DANDO O BIND COM A BASE DAS MULHERES
+mulheresvot <- merge(mulheres, resultado, by.x="Nome", by.y = "NM_URNA_CANDIDATO", all.x = T, all.y = F, incomparables = NA)
+#vendo o gráfico de menções por status
+gvot <- ggplot(mulheresvot, aes(st, Qtde_menções))+
+  geom_bar(stat = "identity")
+
+ggplotly(gvot)
+```
+
+# Média de menções por resultado
+A média de menções das que foram eleitas por coeficiente foi de 3.826. Enquanto que aquelas que não foram eleitas tiveram uma média de 1.107 menções. 
+O gráfico com mais variáveis de distribuição por status da eleição também pode ser verificado abaixo:
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+mulheresvot %>% group_by(st) %>% summarise(mean(Qtde_menções))
+
+grel1 <- ggplot(mulheresvot, aes(st, Qtde_menções, fill=st))+
+  geom_boxplot()
+ggplotly(grel1)
+```
+## Menções x voto
+Podemos ainda inferir se há relação entre a quantidade de votos e as mençẽos no levantamento. E aparentemente há uma relação positiva, aonde quanto maior a quantidade de menções também aumentou a quantidade de votos. Principalmente se eliminarmos a candidata Joice Hasselmann que teve a maior quantidade de votos e não foi eleita. Como mostra o segundo gráfico na sequência.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+grel2 <- ggplot(mulheresvot, aes(Qtde_menções, qtdvoto))+
+  geom_point()+
+  geom_smooth()
+ggplotly(grel2)
+
+grel2b <- ggplot(subset(mulheresvot, Nome!="JOICE HASSELMANN"), aes(Qtde_menções, qtdvoto))+
+  geom_point()+
+  geom_smooth()
+ggplotly(grel2b)
+
+```
+
+## Bens declarados
+Outra informação é o valor total dos bens declarados pelas candidatas. Pelo gráfico abaixo, não conseguimos estabelecer uma relação entre as variáveis. O que nos leva a inferir que independente dos valores dos bens a quantidade de menções não se difere associada à ela. 
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#trazendo a base dos bens
+bens <- read.csv("bem_candidato_2022_BRASIL.csv", sep = ";", fileEncoding = "latin1")
+bens <- bens[,c(12, 17)]
+bens$VR_BEM_CANDIDATO <- str_replace_all(bens$VR_BEM_CANDIDATO, ",", ".")
+bens$VR_BEM_CANDIDATO <- as.numeric(bens$VR_BEM_CANDIDATO)
+
+somabens <- aggregate(bens$VR_BEM_CANDIDATO, list(bens$SQ_CANDIDATO), FUN = sum)
+names(somabens) <- c("SQ_CANDIDATO", "BENS")
+#fazendo o merge com a base das mulheres voto
+mulherestt <- merge(mulheresvot, somabens, by.x = "SQ_CANDIDATO", by.y = "SQ_CANDIDATO", 
+                    all.x = T, all.y = F, incomparables = NA)
+grel3 <- ggplot(mulherestt, aes(Qtde_menções, BENS))+
+  geom_point()+
+  geom_smooth()
+ggplotly(grel3)
+```
+
+## Resumo
+Abaixo, você encontra a base resumo, com a quantidade de menções que cada candidata recebeu, se foi eleita ou não, a quantidade e a proporção de votos e o valor total dos bens declarados
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+paged_table(mulherestt[-c(4,5),])
+```
+
